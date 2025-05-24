@@ -1,4 +1,5 @@
 import io.qameta.allure.Description;
+import praktikum.BaseTest;
 import praktikum.BaseHttpClient;
 import praktikum.constants.Endpoints;
 import praktikum.constants.Messages;
@@ -7,24 +8,36 @@ import com.github.javafaker.Faker;
 import io.qameta.allure.junit4.DisplayName;
 import io.restassured.response.Response;
 import org.junit.After;
+import org.junit.Before;
 import org.junit.Test;
 import static org.hamcrest.Matchers.equalTo;
 
-public class UserCreateTest extends BaseHttpClient {
+public class UserCreateTest extends BaseTest {
     Faker faker = new Faker();
-    String email = faker.internet().emailAddress();
-    String password = faker.internet().password();
-    String name = faker.name().username();
+    String email;
+    String password;
+    String name;
     Response response;
+
+    BaseHttpClient httpClient = new BaseHttpClient() {};
+
+    @Before
+    @Description("Генерация уникальных данных пользователя перед тестом")
+    public void setUp() {
+        email = faker.internet().emailAddress();
+        password = faker.internet().password();
+        name = faker.name().username();
+    }
 
     @After
     @Description("Удаление созданного пользователя")
-    public  void cleanData() {
-        String accessToken;
-        int statusCode = response.then().extract().statusCode();
-        if (statusCode == 200) {
-            accessToken = response.then().extract().path("accessToken").toString();
-            deleteRequest(Endpoints.ACTIONS_WITH_USER, accessToken);
+    public void cleanData() {
+        if (response != null) {
+            int statusCode = response.then().extract().statusCode();
+            if (statusCode == 200) {
+                String accessToken = response.then().extract().path("accessToken").toString();
+                httpClient.deleteRequest(Endpoints.ACTIONS_WITH_USER, accessToken);
+            }
         }
     }
 
@@ -33,7 +46,7 @@ public class UserCreateTest extends BaseHttpClient {
     @Description("Проверка статуса 200 и поля 'success': true")
     public void checkUserRegistration() {
         User user = new User(email, password, name);
-        response = postRequest(Endpoints.USER_CREATE_POST, user);
+        response = httpClient.postRequest(Endpoints.USER_CREATE_POST, user);
         response.then().statusCode(200)
                 .and()
                 .body("success", equalTo(true));
@@ -44,14 +57,13 @@ public class UserCreateTest extends BaseHttpClient {
     @Description("Проверка статуса 403 и поля 'message': User already exists")
     public void checkUserRegistrationAlreadyRegistered() {
         User user = new User(email, password, name);
-        response = postRequest(Endpoints.USER_CREATE_POST, user);
+        response = httpClient.postRequest(Endpoints.USER_CREATE_POST, user);
 
-        Response responseSecond = postRequest(Endpoints.USER_CREATE_POST, user);
+        Response responseSecond = httpClient.postRequest(Endpoints.USER_CREATE_POST, user);
         responseSecond.then().statusCode(403)
                 .and()
                 .body("success", equalTo(false))
-                .body("message", equalTo(Messages.existingUserMessage));
-
+                .body("message", equalTo(Messages.EXISTING_USER_MESSAGE));
     }
 
     @Test
@@ -59,11 +71,11 @@ public class UserCreateTest extends BaseHttpClient {
     @Description("Проверка статуса 403 и поля 'message': Email, password and name are required fields")
     public void checkUserRegistrationWithoutEmail() {
         User user = new User(null, password, name);
-        response = postRequest(Endpoints.USER_CREATE_POST, user);
+        response = httpClient.postRequest(Endpoints.USER_CREATE_POST, user);
         response.then().statusCode(403)
                 .and()
                 .body("success", equalTo(false))
-                .body("message", equalTo(Messages.requiredFieldMessage));
+                .body("message", equalTo(Messages.REQUIRED_FIELD_MESSAGE));
     }
 
     @Test
@@ -71,11 +83,11 @@ public class UserCreateTest extends BaseHttpClient {
     @Description("Проверка статуса 403 и поля 'message': Email, password and name are required fields")
     public void checkUserRegistrationWithoutPassword() {
         User user = new User(email, null, name);
-        response = postRequest(Endpoints.USER_CREATE_POST, user);
+        response = httpClient.postRequest(Endpoints.USER_CREATE_POST, user);
         response.then().statusCode(403)
                 .and()
                 .body("success", equalTo(false))
-                .body("message", equalTo(Messages.requiredFieldMessage));
+                .body("message", equalTo(Messages.REQUIRED_FIELD_MESSAGE));
     }
 
     @Test
@@ -83,11 +95,10 @@ public class UserCreateTest extends BaseHttpClient {
     @Description("Проверка статуса 403 и поля 'message': Email, password and name are required fields")
     public void checkUserRegistrationWithoutName() {
         User user = new User(email, password, null);
-        response = postRequest(Endpoints.USER_CREATE_POST, user);
+        response = httpClient.postRequest(Endpoints.USER_CREATE_POST, user);
         response.then().statusCode(403)
                 .and()
                 .body("success", equalTo(false))
-                .body("message", equalTo(Messages.requiredFieldMessage));
+                .body("message", equalTo(Messages.REQUIRED_FIELD_MESSAGE));
     }
-
 }

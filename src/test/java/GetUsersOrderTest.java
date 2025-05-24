@@ -1,4 +1,5 @@
 import io.qameta.allure.Description;
+import praktikum.BaseTest;
 import praktikum.BaseHttpClient;
 import praktikum.constants.Endpoints;
 import praktikum.constants.Messages;
@@ -15,27 +16,35 @@ import java.util.List;
 
 import static org.hamcrest.Matchers.equalTo;
 
-public class GetUsersOrderTest extends BaseHttpClient {
+public class GetUsersOrderTest extends BaseTest {
     Faker faker = new Faker();
-    String email = faker.internet().emailAddress();
-    String password = faker.internet().password();
-    String name = faker.name().username();
+    String email;
+    String password;
+    String name;
     String accessToken;
     Response response;
+
+    // Создаем экземпляр клиента для отправки запросов
+    BaseHttpClient httpClient = new BaseHttpClient() {};
 
     @Before
     @Description("Создание нового пользователя")
     public void setData() {
+        email = faker.internet().emailAddress();
+        password = faker.internet().password();
+        name = faker.name().username();
+
         User user = new User(email, password, name);
-        response = postRequest(Endpoints.USER_CREATE_POST, user);
+        response = httpClient.postRequest(Endpoints.USER_CREATE_POST, user);
         accessToken = response.then().extract().path("accessToken").toString();
     }
+
     @After
     @Description("Удаление созданного пользователя")
-    public  void cleanData() {
+    public void cleanData() {
         int statusCode = response.then().extract().statusCode();
         if (statusCode == 200) {
-            deleteRequest(Endpoints.ACTIONS_WITH_USER, accessToken);
+            httpClient.deleteRequest(Endpoints.ACTIONS_WITH_USER, accessToken);
         }
     }
 
@@ -43,25 +52,24 @@ public class GetUsersOrderTest extends BaseHttpClient {
     @DisplayName("Получение заказа авторизированного пользователя")
     @Description("Проверка статуса 200 и поля 'success': true")
     public void checkOrderCreationWithAuthorization() {
-        List<String> listAvailableIngredients = getRequest(Endpoints.INGREDIENTS_LIST_GET, "").then().extract().path("data._id");
+        List<String> listAvailableIngredients = httpClient.getRequest(Endpoints.INGREDIENTS_LIST_GET, "")
+                .then().extract().path("data._id");
         Order order = new Order(listAvailableIngredients.subList(0, 1));
-        postRequest(Endpoints.ORDER_CREATE_POST, order);
-        Response orderGetOrderResponse = getRequest(Endpoints.USERS_ORDER_GET, accessToken);
+        httpClient.postRequest(Endpoints.ORDER_CREATE_POST, order);
+        Response orderGetOrderResponse = httpClient.getRequest(Endpoints.USERS_ORDER_GET, accessToken);
         orderGetOrderResponse.then().statusCode(200)
                 .and()
                 .body("success", equalTo(true));
-
     }
 
     @Test
     @DisplayName("Получение заказа неавторизированного пользователя")
     @Description("Проверка статуса 401 и поля 'message': You should be authorised")
     public void checkOrderCreationWithoutAuthorization() {
-        Response orderGetOrderResponse = getRequest(Endpoints.USERS_ORDER_GET, "");
+        Response orderGetOrderResponse = httpClient.getRequest(Endpoints.USERS_ORDER_GET, "");
         orderGetOrderResponse.then().statusCode(401)
                 .and()
                 .body("success", equalTo(false))
-                .body("message", equalTo(Messages.authorizationMessage));
+                .body("message", equalTo(Messages.AUTHORIZATION_MESSAGE));
     }
-
 }
